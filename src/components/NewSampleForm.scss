@@ -4,6 +4,13 @@
   gap: 20px;
   max-width: 1024px;
 
+  .newformMenu {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+
   .row {
     display: flex;
     flex-direction: column;

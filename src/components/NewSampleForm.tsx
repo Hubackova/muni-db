@@ -135,6 +135,31 @@ const NewSampleForm: React.FC = () => {
     toast.success("ok");
   };
 
+  const handleReset = () => {
+    sessionStorage.removeItem(FORM_DATA_KEY);
+
+    setValue("isolateCode", "");
+    setValue("speciesOrig", "");
+    setValue("speciesUpdated", "");
+    setValue("project", "");
+    setValue("dateIsolation", "");
+    setValue("ngul", "");
+    setValue("box", "");
+    setValue("storageSite", "");
+    setValue("localityCode", "");
+    setValue("country", "");
+    setValue("state", "");
+    setValue("kit", "");
+    setValue("localityName", "");
+    setValue("latitude", "");
+    setValue("longitude", "");
+    setValue("altitude", "");
+    setValue("habitat", "");
+    setValue("dateCollection", "");
+    setValue("collector", "");
+    setValue("isolateCodeGroup", "");
+  };
+
   const getSavedData = React.useCallback(() => {
     let data = sessionStorage.getItem(FORM_DATA_KEY);
     if (data) {
@@ -332,7 +357,12 @@ const NewSampleForm: React.FC = () => {
 
   return (
     <form className="form" onSubmit={handleSubmit(addItem)}>
-      <h5>Add new sample:</h5>
+      <div className="newformMenu">
+        <h5>Add new sample:</h5>
+        <button className="resetBtn" onClick={handleReset}>
+          reset form
+        </button>
+      </div>
       <div className="form-grid">
         <div>
           <TextInput

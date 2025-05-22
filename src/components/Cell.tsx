@@ -47,35 +47,41 @@ export const DateCell: React.FC<any> = ({
   cell,
   saveLast = () => {},
   maxChars = 22,
+  confirm = true,
 }) => {
   const db = getDatabase();
   const [showEditModal, setShowEditModal] = useState(null);
   const [value, setValue] = React.useState(initialValue);
+
+  const updateCell = (updateValue) => {
+    update(ref(db, EXTRACTIONS + row.original.key), {
+      [cell.column.id]: updateValue,
+    });
+    saveLast({
+      rowKey: row.original.key,
+      cellId: cell.column.id,
+      initialValue,
+    });
+  };
 
   const onChange = (e: any) => {
     setValue(e.target.value);
     if (
       (initialValue?.toString() || "") !== (e.target.value?.toString() || "")
     ) {
-      setShowEditModal({
-        row,
-        newValue: e.target.value,
-        id: cell.column.id,
-        initialValue,
-        setValue,
-        callback: () => {
-          update(ref(db, EXTRACTIONS + row.original.key), {
-            [cell.column.id]: e.target.value,
-          });
-          saveLast({
-            rowKey: row.original.key,
-            cellId: cell.column.id,
+      confirm
+        ? setShowEditModal({
+            row,
+            newValue: e.target.value,
+            id: cell.column.id,
             initialValue,
-          });
-        },
-      });
+            setValue,
+            callback: () => updateCell(e.target.value),
+          })
+        : updateCell(e.target.value);
     }
   };
+
   React.useEffect(() => {
     setValue(initialValue);
   }, [initialValue]);

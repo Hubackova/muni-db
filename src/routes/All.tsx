@@ -312,6 +312,7 @@ const All: React.FC<DnaExtractionsProps> = ({ storage, extractions }) => {
         accessor: "project",
         Filter: Multi,
         filter: multiSelectFilter,
+        Cell: NoConfirmCell,
       },
       {
         Header: "Isolation date",
@@ -323,6 +324,7 @@ const All: React.FC<DnaExtractionsProps> = ({ storage, extractions }) => {
               row={row}
               cell={cell}
               saveLast={setLast}
+              confirm={false}
             />
           ),
           customComparator
@@ -335,7 +337,7 @@ const All: React.FC<DnaExtractionsProps> = ({ storage, extractions }) => {
         accessor: "ngul",
         Cell: React.memo<React.FC<any>>(
           ({ value, row, cell }) => (
-            <EditableCell
+            <EditableNoConfirmCell
               initialValue={value}
               row={row}
               cell={cell}

@@ -503,7 +503,10 @@ const All: React.FC<DnaExtractionsProps> = ({ storage, extractions }) => {
       const customKeys = [...customColumns, ...customColumns2].map(
         (i) => i.accessor
       );
-      const tableDataKeys = Object.keys(tableData[0]);
+      // Získání všech unikátních klíčů z celého tableData
+      const tableDataKeys = Array.from(
+        new Set(tableData.flatMap((row) => Object.keys(row)))
+      );
       return tableDataKeys
         .filter((i) => i !== "isolateCodeGroup")
         .map((i) => {

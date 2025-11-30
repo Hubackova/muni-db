@@ -97,6 +97,26 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
     toast.success("Column was added successfully");
   };
 
+const deleteColumnFromDB = async (accessor) => {
+  if (!window.confirm(`Do you really want to delete all values in column "${accessor}"?`)) {
+    return;
+  }
+
+  const updates = {};
+  tableData.forEach((row) => {
+    updates[`${EXTRACTIONS}${row.key}/${accessor}`] = null; // null = odstraní hodnotu v Realtime DB
+  });
+
+  try {
+    await update(ref(db), updates);
+    toast.success(`Column "${accessor}" was cleared from DB.`);
+  } catch (err) {
+    toast.error(`Failed to delete column: ${err.message}`);
+  }
+};
+
+
+
   const editItem = useCallback(
     (key: string, newValue: string, id: string) => {
       update(ref(db, EXTRACTIONS + key), {
@@ -401,7 +421,27 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
         .map((i) => {
           if (customKeys.includes(i)) return null;
           return {
-            Header: i,
+            Header: () => (
+              <>
+                <span>{i}</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteColumnFromDB(i);
+                  }}
+                  title="Remove column"
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    color: "red",
+                    marginLeft: 8,
+                  }}
+                >
+                  ✕
+                </button>
+              </>
+            ),
             accessor: i,
             Filter: Multi,
             filter: multiSelectFilter,

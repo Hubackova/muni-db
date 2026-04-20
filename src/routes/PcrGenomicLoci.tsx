@@ -46,7 +46,7 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
 
   const removeIsolateFromGroup = (isolateCode) => {
     const group = extractions.filter(
-      (i) => i.isolateCodeGroup && i.isolateCodeGroup.includes(isolateCode)
+      (i) => i.isolateCodeGroup && i.isolateCodeGroup.includes(isolateCode),
     );
 
     const removedItem = extractions.find((i) => i.isolateCode === isolateCode);
@@ -54,9 +54,9 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
     group.forEach((groupItem) =>
       update(ref(db, EXTRACTIONS + groupItem.key), {
         isolateCodeGroup: groupItem.isolateCodeGroup.filter(
-          (i) => i !== isolateCode
+          (i) => i !== isolateCode,
         ),
-      })
+      }),
     );
 
     update(ref(db, EXTRACTIONS + removedItem.key), {
@@ -85,7 +85,7 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
           storageSite: storageData?.storageSite,
         };
       }),
-    [extractions, storage]
+    [extractions, storage],
   );
 
   const addColumn = (name) => {
@@ -97,25 +97,66 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
     toast.success("Column was added successfully");
   };
 
-const deleteColumnFromDB = async (accessor) => {
-  if (!window.confirm(`Do you really want to delete all values in column "${accessor}"?`)) {
-    return;
-  }
+  const deleteColumnFromDB = async (accessor) => {
+    if (
+      !window.confirm(
+        `Do you really want to delete all values in column "${accessor}"?`,
+      )
+    ) {
+      return;
+    }
 
-  const updates = {};
-  tableData.forEach((row) => {
-    updates[`${EXTRACTIONS}${row.key}/${accessor}`] = null; // null = odstraní hodnotu v Realtime DB
-  });
+    const updates = {};
+    tableData.forEach((row) => {
+      updates[`${EXTRACTIONS}${row.key}/${accessor}`] = null; // null = odstraní hodnotu v Realtime DB
+    });
 
-  try {
-    await update(ref(db), updates);
-    toast.success(`Column "${accessor}" was cleared from DB.`);
-  } catch (err) {
-    toast.error(`Failed to delete column: ${err.message}`);
-  }
-};
+    try {
+      await update(ref(db), updates);
+      toast.success(`Column "${accessor}" was cleared from DB.`);
+    } catch (err) {
+      toast.error(`Failed to delete column: ${err.message}`);
+    }
+  };
 
+  const renameColumnInDB = async (accessor) => {
+    const newName = window.prompt(`Rename column "${accessor}" to:`, accessor);
+    if (!newName || newName === accessor) return;
 
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      toast.error("Column name cannot be empty.");
+      return;
+    }
+
+    if (/[.#$/[\]]/.test(trimmed)) {
+      toast.error('Column name cannot contain ".", "#", "$", "/", "[" or "]".');
+      return;
+    }
+
+    const allKeys = Array.from(
+      new Set(tableData.flatMap((row) => Object.keys(row))),
+    );
+    if (allKeys.includes(trimmed)) {
+      toast.error(`Column "${trimmed}" already exists.`);
+      return;
+    }
+
+    const updates = {};
+    extractions.forEach((row) => {
+      if (Object.prototype.hasOwnProperty.call(row, accessor)) {
+        updates[`${EXTRACTIONS}${row.key}/${trimmed}`] = row[accessor];
+        updates[`${EXTRACTIONS}${row.key}/${accessor}`] = null;
+      }
+    });
+
+    try {
+      await update(ref(db), updates);
+      toast.success(`Column "${accessor}" was renamed to "${trimmed}".`);
+    } catch (err) {
+      toast.error(`Failed to rename column: ${err.message}`);
+    }
+  };
 
   const editItem = useCallback(
     (key: string, newValue: string, id: string) => {
@@ -123,7 +164,7 @@ const deleteColumnFromDB = async (accessor) => {
         [id]: newValue,
       });
     },
-    [db]
+    [db],
   );
 
   const boxOptions = useMemo(
@@ -143,12 +184,12 @@ const deleteColumnFromDB = async (accessor) => {
           }
           return 0;
         }),
-    [storage]
+    [storage],
   );
 
   const boxOptionsWithEmpty = useMemo(
     () => [{ value: "", label: "-- empty --", storageSite: "" }, ...boxOptions],
-    [boxOptions]
+    [boxOptions],
   );
 
   const DefaultCell = React.memo<React.FC<any>>(
@@ -160,7 +201,7 @@ const deleteColumnFromDB = async (accessor) => {
         saveLast={setLast}
       />
     ),
-    customComparator
+    customComparator,
   );
 
   const handleRevert = () => {
@@ -182,7 +223,7 @@ const deleteColumnFromDB = async (accessor) => {
         saveLast={setLast}
       />
     ),
-    customLocalityComparator
+    customLocalityComparator,
   );
 
   const NoConfirmCell = React.memo<React.FC<any>>(
@@ -194,7 +235,7 @@ const deleteColumnFromDB = async (accessor) => {
         saveLast={setLast}
       />
     ),
-    customComparator
+    customComparator,
   );
 
   const customColumns = React.useMemo(
@@ -210,7 +251,7 @@ const deleteColumnFromDB = async (accessor) => {
               disabled
             ></input>
           ),
-          customComparator
+          customComparator,
         ),
         Filter: Multi,
         filter: multiSelectFilter,
@@ -220,7 +261,7 @@ const deleteColumnFromDB = async (accessor) => {
         accessor: "speciesOrig",
         Cell: React.memo<React.FC<any>>(
           ({ row: { original } }) => <span>{original.speciesOrig}</span>,
-          customComparator
+          customComparator,
         ),
         Filter: Multi,
         filter: multiSelectFilter,
@@ -243,7 +284,7 @@ const deleteColumnFromDB = async (accessor) => {
               saveLast={setLast}
             />
           ),
-          customComparator
+          customComparator,
         ),
         Filter: Multi,
         filter: multiSelectFilter,
@@ -262,7 +303,7 @@ const deleteColumnFromDB = async (accessor) => {
               saveLast={setLast}
             />
           ),
-          customComparator
+          customComparator,
         ),
         Filter: Multi,
         filter: multiSelectFilter,
@@ -368,7 +409,7 @@ const deleteColumnFromDB = async (accessor) => {
         filter: multiSelectFilter,
       },
     ],
-    [boxOptions, editItem]
+    [boxOptions, editItem],
   );
 
   const customColumns2 = React.useMemo(
@@ -402,18 +443,18 @@ const deleteColumnFromDB = async (accessor) => {
         filter: multiSelectFilter,
       },
     ],
-    []
+    [],
   );
 
   const getColumnsAccessor = useCallback(
     (tableData) => {
       if (!tableData || !tableData.length) return [];
       const customKeys = [...customColumns, ...customColumns2].map(
-        (i) => i.accessor
+        (i) => i.accessor,
       );
       // Získání všech unikátních klíčů z celého tableData
       const tableDataKeys = Array.from(
-        new Set(tableData.flatMap((row) => Object.keys(row)))
+        new Set(tableData.flatMap((row) => Object.keys(row))),
       );
 
       return tableDataKeys
@@ -427,6 +468,22 @@ const deleteColumnFromDB = async (accessor) => {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    renameColumnInDB(i);
+                  }}
+                  title="Rename column"
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    color: "#007bff",
+                    marginLeft: "auto",
+                  }}
+                >
+                  ✎
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
                     deleteColumnFromDB(i);
                   }}
                   title="Remove column"
@@ -435,7 +492,6 @@ const deleteColumnFromDB = async (accessor) => {
                     background: "transparent",
                     cursor: "pointer",
                     color: "red",
-                    marginLeft: 8,
                   }}
                 >
                   ✕
@@ -449,7 +505,7 @@ const deleteColumnFromDB = async (accessor) => {
         })
         .filter((i) => i && i.accessor !== "key");
     },
-    [customColumns, customColumns2]
+    [customColumns, customColumns2],
   );
 
   const columns = React.useMemo(
@@ -458,7 +514,7 @@ const deleteColumnFromDB = async (accessor) => {
       ...getColumnsAccessor(tableData),
       ...customColumns2,
     ],
-    [customColumns, customColumns2, tableData, getColumnsAccessor]
+    [customColumns, customColumns2, tableData, getColumnsAccessor],
   );
 
   const tableInstance = useTable(
@@ -491,7 +547,7 @@ const deleteColumnFromDB = async (accessor) => {
         },
         ...columns,
       ]);
-    }
+    },
   );
   const {
     getTableProps,
@@ -533,7 +589,7 @@ const deleteColumnFromDB = async (accessor) => {
     groupKeys.forEach((groupKey) =>
       update(ref(db, EXTRACTIONS + groupKey), {
         isolateCodeGroup: newIsolateCodeGroupUnique,
-      })
+      }),
     );
     setSelectedItem(false);
   };
@@ -544,19 +600,19 @@ const deleteColumnFromDB = async (accessor) => {
         /* todo, razeni az nakonec */
         extractions.reduce(
           (acc, cur) => Object.assign(acc, { [cur.isolateCode]: cur }),
-          {}
-        )
+          {},
+        ),
       )
         .sort((a: any, b: any) => a.isolateCode?.localeCompare(b.isolateCode))
         .map((extractionItem: any, index) => {
           /* todo:not neccessary */
           const currentItem = extractions.find(
-            (extraction) => extraction.key === selectedItem.key
+            (extraction) => extraction.key === selectedItem.key,
           );
           if (
             (currentItem?.isolateCodeGroup &&
               currentItem?.isolateCodeGroup.includes(
-                extractionItem.isolateCode
+                extractionItem.isolateCode,
               )) ||
             currentItem?.isolateCode === extractionItem.isolateCode ||
             currentItem?.country !== extractionItem.country ||
@@ -626,7 +682,7 @@ const deleteColumnFromDB = async (accessor) => {
             onConfirm={() => {
               handleIsolateCodeClick(
                 showGroupModal.currentItem,
-                showGroupModal.extractionItem
+                showGroupModal.extractionItem,
               );
               setShowGroupModal(null);
               toast.success("Group was modified successfully");
@@ -643,7 +699,7 @@ const deleteColumnFromDB = async (accessor) => {
                     <th key={column.id}>
                       <span
                         {...column.getHeaderProps(
-                          column.getSortByToggleProps()
+                          column.getSortByToggleProps(),
                         )}
                       >
                         {column.render("Header")}

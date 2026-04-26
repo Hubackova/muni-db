@@ -7,13 +7,14 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./App.scss";
 import TopBar from "./components/TopBar";
-import { EXTRACTIONS } from "./constants";
+import { EXTRACTIONS, LOCI_TESTING } from "./constants";
 import routes from "./routes";
 import All from "./routes/All";
 import DnaExtractions from "./routes/DnaExtractions";
 import Error404 from "./routes/Error404";
 import HomePage from "./routes/HomePage";
 import Locations from "./routes/Locations";
+import NewLociTesting from "./routes/NewLociTesting";
 import PcrGenomicLoci from "./routes/PcrGenomicLoci";
 import PcrPrograms from "./routes/PcrPrograms";
 import Primers from "./routes/Primers";
@@ -23,6 +24,7 @@ import { DnaExtractionsType, StorageType } from "./types";
 const App: React.FC = () => {
   const [storage, setStorage] = useState<StorageType[]>([]);
   const [extractions, setExtractions] = useState<DnaExtractionsType[]>([]);
+  const [testingLoci, setTestingLoci] = useState<string[]>([]);
   const db = getDatabase();
 
   useEffect(() => {
@@ -43,6 +45,10 @@ const App: React.FC = () => {
         items.push(childItem);
       });
       setStorage(items);
+    });
+    onValue(ref(db, LOCI_TESTING), (snapshot) => {
+      const value = snapshot.val();
+      setTestingLoci(Array.isArray(value) ? value.filter(Boolean) : []);
     });
   }, [db]);
 
@@ -75,6 +81,21 @@ const App: React.FC = () => {
                 <PcrGenomicLoci
                   storage={storage}
                   extractions={sortedExtractions}
+                  testingLoci={testingLoci}
+                />
+              ) : (
+                <div> loading (or no data)</div>
+              )
+            }
+          />
+          <Route
+            path={routes.newLociTesting}
+            element={
+              extractions?.length > 0 && storage?.length > 0 ? (
+                <NewLociTesting
+                  storage={storage}
+                  extractions={sortedExtractions}
+                  testingLoci={testingLoci}
                 />
               ) : (
                 <div> loading (or no data)</div>

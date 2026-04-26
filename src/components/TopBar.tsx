@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { getDatabase, onValue, ref } from "firebase/database";
+import { get, getDatabase, ref } from "firebase/database";
 import React from "react";
 import { NavLink } from "react-router-dom";
 import routes from "../routes";
@@ -9,24 +9,23 @@ import "./TopBar.scss";
 const TopBar: React.FC = () => {
   const db = getDatabase();
 
-  const handleDownload = () => {
-    onValue(ref(db, "/"), (snapshot) => {
-      const data = JSON.stringify(snapshot);
-      const link = document.createElement("a");
+  const handleDownload = async () => {
+    const snapshot = await get(ref(db, "/"));
+    const data = JSON.stringify(snapshot);
+    const link = document.createElement("a");
 
-      link.setAttribute(
-        "href",
-        "data:text/plain;charset=utf-8," + encodeURIComponent(data)
-      );
-      link.setAttribute("download", "db-mollusca-backup.json");
-      link.style.display = "none";
+    link.setAttribute(
+      "href",
+      "data:text/plain;charset=utf-8," + encodeURIComponent(data)
+    );
+    link.setAttribute("download", "db-mollusca-backup.json");
+    link.style.display = "none";
 
-      document.body.appendChild(link);
+    document.body.appendChild(link);
 
-      link.click();
+    link.click();
 
-      document.body.removeChild(link);
-    });
+    document.body.removeChild(link);
   };
 
   return (
@@ -54,6 +53,14 @@ const TopBar: React.FC = () => {
         }
       >
         PCR Genomic Loci
+      </NavLink>
+      <NavLink
+        to={routes.newLociTesting}
+        className={({ isActive }) =>
+          isActive ? "topbar-item active" : "topbar-item"
+        }
+      >
+        New Loci Testing
       </NavLink>
       <NavLink
         to={routes.storage}

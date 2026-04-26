@@ -13,3 +13,4 @@ export const legend = [
 ];
 
 export const EXTRACTIONS = "testextractions/";
+export const LOCI_TESTING = "lociMeta/testing";

@@ -16,7 +16,6 @@ import {
   EditableNoConfirmCell,
   SelectCell,
   customComparator,
-  customLocalityComparator,
 } from "../components/Cell";
 import ConfirmModal from "../components/ConfirmModal";
 import { GlobalFilter, Multi, multiSelectFilter } from "../components/Filter";
@@ -26,18 +25,13 @@ import { ReactComponent as ExportIcon } from "../images/export.svg";
 import { ReactComponent as InfoIcon } from "../images/info.svg";
 import { DnaExtractionsType, StorageType } from "../types";
 
-interface PcrGenomicLociProps {
+interface NewLociTestingProps {
   storage: StorageType[];
   extractions: DnaExtractionsType[];
   testingLoci: string[];
 }
 
-const NEW_LOCI_TESTING_ONLY_KEYS = [
-  "noteSequencingTesting",
-  "noteGeneralTesting",
-];
-
-const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
+const NewLociTesting: React.FC<NewLociTestingProps> = ({
   storage,
   extractions,
   testingLoci,
@@ -46,48 +40,15 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
   const [isPopoverOpen, setIsPopoverOpen] = useState("");
   const [full, setFull] = useState(false);
   const [last, setLast] = useState(false);
+  const [approveModal, setApproveModal] = useState(null);
   const db = getDatabase();
-  const [selectedItem, setSelectedItem] = useState(false);
-  const [showGroupModal, setShowGroupModal] = useState(null);
-  const [showRemoveModal, setShowRemoveModal] = useState(null);
-
-  const removeIsolateFromGroup = (isolateCode) => {
-    const group = extractions.filter(
-      (i) => i.isolateCodeGroup && i.isolateCodeGroup.includes(isolateCode),
-    );
-
-    const removedItem = extractions.find((i) => i.isolateCode === isolateCode);
-
-    group.forEach((groupItem) =>
-      update(ref(db, EXTRACTIONS + groupItem.key), {
-        isolateCodeGroup: groupItem.isolateCodeGroup.filter(
-          (i) => i !== isolateCode,
-        ),
-      }),
-    );
-
-    update(ref(db, EXTRACTIONS + removedItem.key), {
-      isolateCodeGroup: "",
-    });
-  };
 
   const tableData = React.useMemo(
     () =>
       extractions.map((ex) => {
-        const {
-          kit,
-          speciesUpdated,
-          altitude,
-          collector,
-          dateCollection,
-          habitat,
-          latitude,
-          longitude,
-          ...data
-        } = ex;
         const storageData = storage.find((i) => i.key === ex.box);
         return {
-          ...data,
+          ...ex,
           box: storageData?.box,
           storageSite: storageData?.storageSite,
         };
@@ -95,13 +56,44 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
     [extractions, storage],
   );
 
-  const addColumn = (name) => {
+  const setTestingList = useCallback(
+    async (next) => {
+      await set(ref(db, LOCI_TESTING), next.length ? next : null);
+    },
+    [db],
+  );
+
+  const addColumn = async (name) => {
+    const trimmed = (name || "").trim();
+    if (!trimmed) {
+      toast.error("Column name cannot be empty.");
+      return;
+    }
+    if (/[.#$/[\]]/.test(trimmed)) {
+      toast.error('Column name cannot contain ".", "#", "$", "/", "[" or "]".');
+      return;
+    }
+    const allKeys = Array.from(
+      new Set(tableData.flatMap((row) => Object.keys(row))),
+    );
+    if (allKeys.includes(trimmed)) {
+      toast.error(`Column "${trimmed}" already exists.`);
+      return;
+    }
+
     const obj = tableData?.length ? tableData[0] : null;
     if (!obj) return null;
-    update(ref(db, EXTRACTIONS + obj.key), {
-      [name]: "",
-    });
-    toast.success("Column was added successfully");
+
+    try {
+      await update(ref(db, EXTRACTIONS + obj.key), { [trimmed]: "" });
+      if (!testingLoci.includes(trimmed)) {
+        await setTestingList([...testingLoci, trimmed]);
+      }
+      setNewColumn("");
+      toast.success("Column was added successfully");
+    } catch (err) {
+      toast.error(`Failed to add column: ${err.message}`);
+    }
   };
 
   const deleteColumnFromDB = async (accessor) => {
@@ -115,11 +107,14 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
 
     const updates = {};
     tableData.forEach((row) => {
-      updates[`${EXTRACTIONS}${row.key}/${accessor}`] = null; // null = odstraní hodnotu v Realtime DB
+      updates[`${EXTRACTIONS}${row.key}/${accessor}`] = null;
     });
 
     try {
       await update(ref(db), updates);
+      if (testingLoci.includes(accessor)) {
+        await setTestingList(testingLoci.filter((i) => i !== accessor));
+      }
       toast.success(`Column "${accessor}" was cleared from DB.`);
     } catch (err) {
       toast.error(`Failed to delete column: ${err.message}`);
@@ -161,11 +156,20 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
       await update(ref(db), updates);
       if (testingLoci.includes(accessor)) {
         const next = testingLoci.map((i) => (i === accessor ? trimmed : i));
-        await set(ref(db, LOCI_TESTING), next);
+        await setTestingList(next);
       }
       toast.success(`Column "${accessor}" was renamed to "${trimmed}".`);
     } catch (err) {
       toast.error(`Failed to rename column: ${err.message}`);
+    }
+  };
+
+  const approveColumn = async (accessor) => {
+    try {
+      await setTestingList(testingLoci.filter((i) => i !== accessor));
+      toast.success(`Column "${accessor}" was approved and moved to PCR Genomic Loci.`);
+    } catch (err) {
+      toast.error(`Failed to approve column: ${err.message}`);
     }
   };
 
@@ -224,19 +228,6 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
     setLast(false);
   };
 
-  const LocalityCell = React.memo<React.FC<any>>(
-    ({ value, row, cell }) => (
-      <EditableCell
-        initialValue={value}
-        row={row}
-        cell={cell}
-        disabled={row.original.localityCode}
-        saveLast={setLast}
-      />
-    ),
-    customLocalityComparator,
-  );
-
   const NoConfirmCell = React.memo<React.FC<any>>(
     ({ value, row, cell }) => (
       <EditableNoConfirmCell
@@ -278,8 +269,12 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
         filter: multiSelectFilter,
       },
       {
-        Header: "Project",
-        accessor: "project",
+        Header: "Species, updated name",
+        accessor: "speciesUpdated",
+        Cell: React.memo<React.FC<any>>(
+          ({ row: { original } }) => <span>{original.speciesUpdated}</span>,
+          customComparator,
+        ),
         Filter: Multi,
         filter: multiSelectFilter,
       },
@@ -292,25 +287,6 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
               initialValue={initialValue}
               row={row}
               cell={cell}
-              saveLast={setLast}
-            />
-          ),
-          customComparator,
-        ),
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
-      {
-        Header: "ng/ul",
-        accessor: "ngul",
-        Cell: React.memo<React.FC<any>>(
-          ({ value, row, cell }) => (
-            <EditableCell
-              initialValue={value}
-              row={row}
-              cell={cell}
-              type="number"
-              step=".00001"
               saveLast={setLast}
             />
           ),
@@ -335,7 +311,6 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
             />
           );
         },
-
         Filter: Multi,
         filter: multiSelectFilter,
       },
@@ -348,107 +323,22 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
         Filter: Multi,
         filter: multiSelectFilter,
       },
-      {
-        Header: "Country",
-        accessor: "country",
-        Cell: LocalityCell,
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
-      {
-        Header: "State/province",
-        accessor: "state",
-        Cell: LocalityCell,
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
-      {
-        Header: "Locality name",
-        accessor: "localityName",
-        Cell: LocalityCell,
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
-      {
-        Header: "cytB",
-        accessor: "cytB",
-        Cell: NoConfirmCell,
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
-      {
-        Header: "16S",
-        accessor: "16S",
-        Cell: NoConfirmCell,
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
-      {
-        Header: "COI",
-        accessor: "COI",
-        Cell: NoConfirmCell,
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
-      {
-        Header: "COII",
-        accessor: "COII",
-        Cell: NoConfirmCell,
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
-
-      {
-        Header: "ITS1",
-        accessor: "ITS1",
-        Cell: NoConfirmCell,
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
-      {
-        Header: "ITS2",
-        accessor: "ITS2",
-        Cell: NoConfirmCell,
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
-      {
-        Header: "ELAV",
-        accessor: "ELAV",
-        Cell: NoConfirmCell,
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
     ],
-    [boxOptions, editItem],
+    [boxOptionsWithEmpty, storage],
   );
 
   const customColumns2 = React.useMemo(
     () => [
       {
-        Header: "Note on PCR",
-        accessor: "notePCR",
-        Cell: NoConfirmCell,
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
-      {
         Header: "Note on sequencing",
-        accessor: "noteSequencing",
+        accessor: "noteSequencingTesting",
         Cell: NoConfirmCell,
         Filter: Multi,
         filter: multiSelectFilter,
       },
       {
         Header: "General note",
-        accessor: "noteGeneral",
-        Cell: NoConfirmCell,
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
-      {
-        Header: "Status",
-        accessor: "status",
+        accessor: "noteGeneralTesting",
         Cell: NoConfirmCell,
         Filter: Multi,
         filter: multiSelectFilter,
@@ -457,77 +347,76 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
     [],
   );
 
-  const getColumnsAccessor = useCallback(
-    (tableData) => {
-      if (!tableData || !tableData.length) return [];
-      const customKeys = [...customColumns, ...customColumns2].map(
-        (i) => i.accessor,
-      );
-      // Získání všech unikátních klíčů z celého tableData
-      const tableDataKeys = Array.from(
-        new Set(tableData.flatMap((row) => Object.keys(row))),
-      );
-
-      return tableDataKeys
-        .filter((i) => i !== "isolateCodeGroup")
-        .filter((i) => !testingLoci.includes(i))
-        .filter((i) => !NEW_LOCI_TESTING_ONLY_KEYS.includes(i))
-        .map((i) => {
-          if (customKeys.includes(i)) return null;
-          return {
-            Header: () => (
-              <>
-                <span>{i}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    renameColumnInDB(i);
-                  }}
-                  title="Rename column"
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    cursor: "pointer",
-                    color: "#007bff",
-                    marginLeft: "auto",
-                  }}
-                >
-                  ✎
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteColumnFromDB(i);
-                  }}
-                  title="Remove column"
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    cursor: "pointer",
-                    color: "red",
-                  }}
-                >
-                  ✕
-                </button>
-              </>
-            ),
-            accessor: i,
-            Filter: Multi,
-            filter: multiSelectFilter,
-          };
-        })
-        .filter((i) => i && i.accessor !== "key");
-    },
-    [customColumns, customColumns2, testingLoci],
-  );
+  const dynamicColumns = useMemo(() => {
+    if (!tableData || !tableData.length) return [];
+    const tableDataKeys = Array.from(
+      new Set(tableData.flatMap((row) => Object.keys(row))),
+    );
+    return testingLoci
+      .filter((i) => tableDataKeys.includes(i))
+      .map((i) => ({
+        Header: () => (
+          <>
+            <span>{i}</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setApproveModal(i);
+              }}
+              title="Approve column → move to PCR Genomic Loci"
+              style={{
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                color: "#28a745",
+                marginLeft: "auto",
+                fontWeight: "bold",
+              }}
+            >
+              ✓
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                renameColumnInDB(i);
+              }}
+              title="Rename column"
+              style={{
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                color: "#007bff",
+              }}
+            >
+              ✎
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteColumnFromDB(i);
+              }}
+              title="Remove column"
+              style={{
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                color: "red",
+              }}
+            >
+              ✕
+            </button>
+          </>
+        ),
+        accessor: i,
+        Cell: NoConfirmCell,
+        Filter: Multi,
+        filter: multiSelectFilter,
+      }));
+  }, [tableData, testingLoci]);
 
   const columns = React.useMemo(
-    () => [
-      ...customColumns,
-      ...getColumnsAccessor(tableData),
-      ...customColumns2,
-    ],
-    [customColumns, customColumns2, tableData, getColumnsAccessor],
+    () => [...customColumns, ...dynamicColumns, ...customColumns2],
+    [customColumns, customColumns2, dynamicColumns],
   );
 
   const tableInstance = useTable(
@@ -575,101 +464,8 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
   } = tableInstance;
   const rowsShow = full ? rows : rows.slice(0, 100);
 
-  const handleIsolateClick = (selectedItemAttr) => {
-    setSelectedItem(selectedItemAttr);
-  };
-
-  const handleIsolateCodeClick = (selectedItem, isolateCodeItem) => {
-    let newIsolateCodeGroup = [
-      selectedItem.isolateCode,
-      isolateCodeItem.isolateCode,
-    ];
-    if (!!isolateCodeItem?.isolateCodeGroup?.length) {
-      newIsolateCodeGroup.push(...isolateCodeItem?.isolateCodeGroup);
-    }
-    if (!!selectedItem?.isolateCodeGroup?.length) {
-      newIsolateCodeGroup.push(...selectedItem?.isolateCodeGroup);
-    }
-
-    const newIsolateCodeGroupUnique = newIsolateCodeGroup
-      ? [...new Set(newIsolateCodeGroup)]
-      : "";
-
-    const groupKeys = extractions
-      .filter((i) => newIsolateCodeGroupUnique.includes(i.isolateCode))
-      .map((i) => i.key);
-
-    groupKeys.forEach((groupKey) =>
-      update(ref(db, EXTRACTIONS + groupKey), {
-        isolateCodeGroup: newIsolateCodeGroupUnique,
-      }),
-    );
-    setSelectedItem(false);
-  };
-
-  const codeItems = !selectedItem
-    ? []
-    : Object.values(
-        /* todo, razeni az nakonec */
-        extractions.reduce(
-          (acc, cur) => Object.assign(acc, { [cur.isolateCode]: cur }),
-          {},
-        ),
-      )
-        .sort((a: any, b: any) => a.isolateCode?.localeCompare(b.isolateCode))
-        .map((extractionItem: any, index) => {
-          /* todo:not neccessary */
-          const currentItem = extractions.find(
-            (extraction) => extraction.key === selectedItem.key,
-          );
-          if (
-            (currentItem?.isolateCodeGroup &&
-              currentItem?.isolateCodeGroup.includes(
-                extractionItem.isolateCode,
-              )) ||
-            currentItem?.isolateCode === extractionItem.isolateCode ||
-            currentItem?.country !== extractionItem.country ||
-            currentItem?.latitude !== extractionItem.latitude ||
-            currentItem?.longitude !== extractionItem.longitude ||
-            currentItem?.state !== extractionItem.state ||
-            currentItem?.localityName !== extractionItem.localityName ||
-            currentItem?.dateCollection !== extractionItem.dateCollection ||
-            currentItem?.collector !== extractionItem.collector ||
-            currentItem?.habitat !== extractionItem.habitat ||
-            currentItem?.speciesOrig !== extractionItem.speciesOrig ||
-            currentItem?.altitude !== extractionItem.altitude
-          )
-            return null;
-
-          return (
-            <div
-              key={index}
-              className="item"
-              onClick={() => setShowGroupModal({ currentItem, extractionItem })}
-            >
-              {extractionItem.isolateCode}
-            </div>
-          );
-        });
-
   return (
     <>
-      {selectedItem && (
-        <div className="side-panel">
-          <div className="body">
-            <h5>Isolate codes</h5>
-            <div className="items">{codeItems}</div>
-
-            <button
-              className="btn cancel-btn"
-              type="button"
-              onClick={() => setSelectedItem(false)}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
       <div
         className="table-container"
         style={{
@@ -677,30 +473,16 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
           overflow: "auto",
         }}
       >
-        {showRemoveModal && (
+        {approveModal && (
           <ConfirmModal
-            title={`Do you want to continue? ${showRemoveModal} will be removed from group`}
-            onConfirm={() => {
-              removeIsolateFromGroup(showRemoveModal);
-              toast.success("Remove was successful");
-              setShowRemoveModal(null);
+            title={`Approve column "${approveModal}"?`}
+            description={`The column will be moved from New Loci Testing to PCR Genomic Loci. Cell values are kept.`}
+            confirmLabel="Approve"
+            onConfirm={async () => {
+              await approveColumn(approveModal);
+              setApproveModal(null);
             }}
-            onHide={() => setShowRemoveModal(null)}
-          />
-        )}
-        {showGroupModal && (
-          <ConfirmModal
-            title="Do you want to continue?"
-            description={`Do you want to add ${showGroupModal.extractionItem.isolateCode} to ${showGroupModal.currentItem.isolateCode}?`}
-            onConfirm={() => {
-              handleIsolateCodeClick(
-                showGroupModal.currentItem,
-                showGroupModal.extractionItem,
-              );
-              setShowGroupModal(null);
-              toast.success("Group was modified successfully");
-            }}
-            onHide={() => setShowGroupModal(null)}
+            onHide={() => setApproveModal(null)}
           />
         )}
         <table className="table pcrgen" {...getTableProps()}>
@@ -730,20 +512,12 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
                     </th>
                   );
                 })}
-                <th>Isolate group</th>
               </tr>
             ))}
           </thead>
           <tbody {...getTableBodyProps()}>
             {rowsShow.map((row) => {
               prepareRow(row);
-
-              const isolateCodeGroup =
-                row.original.isolateCodeGroup &&
-                Array.isArray(row.original.isolateCodeGroup)
-                  ? row.original.isolateCodeGroup.map((i) => i)
-                  : [];
-
               return (
                 <tr {...row.getRowProps()} key={row.id}>
                   {row.cells.map((cell) => {
@@ -756,26 +530,6 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
                       </td>
                     );
                   })}
-                  <td className="sample-list">
-                    {isolateCodeGroup.length > 1 &&
-                      isolateCodeGroup.map((isolateCode) => (
-                        <span key={isolateCode} className="sample">
-                          {isolateCode}
-
-                          <button
-                            onClick={() => setShowRemoveModal(isolateCode)}
-                          >
-                            X
-                          </button>
-                        </span>
-                      ))}
-                    <span
-                      className="sample add"
-                      onClick={() => handleIsolateClick(row.original)}
-                    >
-                      + Add
-                    </span>
-                  </td>
                 </tr>
               );
             })}
@@ -809,7 +563,7 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
         <div className="download">
           <CSVLink
             data={selectedFlatRows.map((i) => i.values)}
-            filename="PCR-genomic-loci.csv"
+            filename="new-loci-testing.csv"
           >
             <div className="export">
               <ExportIcon />
@@ -841,4 +595,4 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
   );
 };
 
-export default PcrGenomicLoci;
+export default NewLociTesting;

@@ -447,6 +447,13 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
         filter: multiSelectFilter,
       },
       {
+        Header: "Position",
+        accessor: "position",
+        Cell: NoConfirmCell,
+        Filter: Multi,
+        filter: multiSelectFilter,
+      },
+      {
         Header: "Status",
         accessor: "status",
         Cell: NoConfirmCell,

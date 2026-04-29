@@ -323,6 +323,13 @@ const NewLociTesting: React.FC<NewLociTestingProps> = ({
         Filter: Multi,
         filter: multiSelectFilter,
       },
+      {
+        Header: "Position",
+        accessor: "position",
+        Cell: NoConfirmCell,
+        Filter: Multi,
+        filter: multiSelectFilter,
+      },
     ],
     [boxOptionsWithEmpty, storage],
   );

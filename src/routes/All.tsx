@@ -381,6 +381,13 @@ const All: React.FC<DnaExtractionsProps> = ({ storage, extractions }) => {
         filter: multiSelectFilter,
       },
       {
+        Header: "Position",
+        accessor: "position",
+        Cell: NoConfirmCell,
+        Filter: Multi,
+        filter: multiSelectFilter,
+      },
+      {
         Header: "cytB",
         accessor: "cytB",
         Cell: NoConfirmCell,
@@ -470,13 +477,6 @@ const All: React.FC<DnaExtractionsProps> = ({ storage, extractions }) => {
         Cell: ({ row: { original } }) => {
           return <span>{original?.box}</span>;
         },
-        Filter: Multi,
-        filter: multiSelectFilter,
-      },
-      {
-        Header: "Position",
-        accessor: "position",
-        Cell: NoConfirmCell,
         Filter: Multi,
         filter: multiSelectFilter,
       },

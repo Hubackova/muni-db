@@ -519,6 +519,7 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
               </>
             ),
             accessor: i,
+            Cell: NoConfirmCell,
             Filter: Multi,
             filter: multiSelectFilter,
           };

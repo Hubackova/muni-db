@@ -514,6 +514,7 @@ const All: React.FC<DnaExtractionsProps> = ({ storage, extractions }) => {
           return {
             Header: i,
             accessor: i,
+            Cell: NoConfirmCell,
             Filter: Multi,
             filter: multiSelectFilter,
           };

@@ -470,10 +470,12 @@ const PcrGenomicLoci: React.FC<PcrGenomicLociProps> = ({
       const customKeys = [...customColumns, ...customColumns2].map(
         (i) => i.accessor,
       );
-      // Získání všech unikátních klíčů z celého tableData
+      // Získání všech unikátních klíčů z celého tableData.
+      // Řazení zajišťuje stabilní pořadí sloupců nezávislé na tom,
+      // které řádky daný klíč obsahují (jinak sloupec po editaci "odskočí").
       const tableDataKeys = Array.from(
         new Set(tableData.flatMap((row) => Object.keys(row))),
-      );
+      ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
       return tableDataKeys
         .filter((i) => i !== "isolateCodeGroup")
